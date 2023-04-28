@@ -19,18 +19,30 @@
 #include <sys/mman.h>
 #include <sys/wait.h>
 #include <unistd.h>
-
+#include <stdarg.h>
+#include <time.h>
 
 //shared variables
-FILE *file; 
 sem_t *mutex = NULL;
 sem_t *customer = NULL;
 sem_t *worker = NULL;
-sem_t *customer_done = NULL;
-sem_t *worker_done = NULL;
+sem_t *letters = NULL;
+sem_t *packages = NULL;
+sem_t *money = NULL;
+sem_t *output = NULL;
+
+FILE *file;
+int *line_number = NULL;
+int *post_closed = NULL;
+int *letter_queue = NULL;
+int *packages_queue = NULL;
+int *money_queue = NULL;
 
 
 //function declaration
-void arg_check(int argc, char **argv);
-void initializaton();
+void arg_check(int argc, char *argv[]);
+void initialization();
 void clean();
+void worker_process(int id_w);
+void customer_process(int id_c, int max_time);
+void custom_print(const char * format, ...);
