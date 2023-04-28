@@ -1,6 +1,6 @@
-EXEC = proj2
+EXEC = main
 CC = gcc
-CFLAGS = -std=gnu99 -Wall -Wextra -Werror -pedantic -lpthread
+CFLAGS = -std=gnu99 -Wall -Wextra -Werror -pedantic -lpthread -g3
 
 SRCS = $(wildcard *.c)
 OBJS = $(patsubst %.c,%.o,$(SRCS))
