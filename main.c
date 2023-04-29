@@ -46,43 +46,52 @@ void worker_process(int id_w) {
     sem_wait(mutex);
     custom_print(" U %d: going home\n", id_w);
     sem_post(mutex);
+    exit(EXIT_SUCCESS);
   }
 
-  //choosing service to serve
+  ///choosing service to serve;
   int service = 0;
   while (1) {
     service = rand() % 3 + 1;
+    sem_wait(mutex);
     if (service == 1 && *letter_queue > 0) {
-
+      sem_post(mutex);
       sem_post(letters);
-
-      custom_print(" U %d: serving a service of type %d\n", id_w, service);
       sem_wait(mutex);
+      (*letter_queue)--;
+      sem_post(mutex);
+      custom_print(" U %d: serving a service of type %d\n", id_w, service);
       break;
     }
+
+    sem_wait(mutex);  
     if (service == 2 && *packages_queue > 0) {
+      sem_post(mutex);
       sem_post(packages);
-
-      custom_print(" U %d: serving a service of type %d\n", id_w, service);
       sem_wait(mutex);
+      (*packages_queue)--;
+      sem_post(mutex);
+      custom_print(" U %d: serving a service of type %d\n", id_w, service);
       break;
     }
-    if (service == 3 && *money_queue > 0) {
-      sem_post(money);
 
-      custom_print(" U %d: serving a service of type %d\n", id_w, service);
+    sem_wait(mutex);
+    if (service == 3 && *money_queue > 0) {
+      sem_post(mutex);
+      sem_post(money);
       sem_wait(mutex);
+      (*money_queue)--;
+      sem_post(mutex);
+      custom_print(" U %d: serving a service of type %d\n", id_w, service);
       break;
     }
   }  
   int random_time = rand() % (10 + 1);
   usleep(random_time);
-  custom_print(" service finished\n");
+  sem_wait(mutex);
+  custom_print(" U %d: service finished\n", id_w);
   sem_post(mutex);
 
-  if(file) {
-    fclose(file);
-  }
   exit(EXIT_SUCCESS);
 }
 
@@ -97,67 +106,60 @@ void customer_process(int id_c, int max_time) {
   //intialize random seed
   srand(time(NULL) * getpid());
 
-  if((*post_closed) == 1) {
-    sem_wait(mutex);
-    custom_print(" Z %d: going home\n", id_c);
-    sem_post(mutex);
-  }
-  
   //initial print, customer is starting after worker  
   sem_wait(mutex);
   custom_print(" Z %d: started\n", id_c);
   sem_post(mutex);
 
+  //if office is closed, then go home
+  if((*post_closed) == 1) {
+    custom_print(" Z %d: going home\n", id_c);
+    exit(EXIT_SUCCESS);
+  }
+
   // wait random time in <0,max_time> interval before entering the office
-  int random_time = rand() % (max_time + 1);
-  usleep(random_time);
+  usleep(rand() % (max_time + 1));
 
   //chose a service when entering the office
   int service = rand() % 3 + 1;
-  sem_wait(mutex);
   switch (service) {
   case 1:
+    sem_wait(mutex);
     (*letter_queue)++;
-    custom_print(" Z %d: entering office for service %d\n", id_c, service);
     sem_post(mutex);
+    custom_print(" Z %d: entering office for service %d\n", id_c, service);
 
     sem_wait(letters);
-    sem_wait(mutex);
     custom_print(" Z %d: called by office worker\n", id_c);
-    (*letter_queue)--;
-    sem_post(mutex);
 
-    break;
+    break;  
+
   case 2:
+    sem_wait(mutex);
     (*packages_queue)++;
     custom_print(" Z %d: entering office for service %d\n", id_c, service);
     sem_post(mutex);
 
-    sem_wait(letters);
-    sem_wait(mutex);
-    custom_print(" Z %d: called by office worker\n", id_c);    custom_print(" Z %d: called by office worker\n", id_c);
+    sem_wait(packages);
+    custom_print(" Z %d: called by office worker\n", id_c);
 
-    (*packages_queue)--;
-    sem_post(mutex);
     break;
+
   case 3:
+    sem_wait(mutex);
     (*money_queue)++;
     custom_print(" Z %d: entering office for service %d\n", id_c, service);
     sem_post(mutex);
 
-    sem_wait(letters);
-    sem_wait(mutex);
+    sem_wait(money);
     custom_print(" Z %d: called by office worker\n", id_c);
-    (*money_queue)--;
-    sem_post(mutex);
+
     break;
+
   default:
     break;
   }
   
-  if(file) {
-    fclose(file);
-  }
   exit(EXIT_SUCCESS);
 }
 
@@ -303,18 +305,18 @@ void initialization() {
   letters = mmap(NULL, sizeof(sem_t), PROT_READ | PROT_WRITE, MAP_ANONYMOUS | MAP_SHARED, 0, 0);
   packages = mmap(NULL, sizeof(sem_t), PROT_READ | PROT_WRITE, MAP_ANONYMOUS | MAP_SHARED, 0, 0);
   money = mmap(NULL, sizeof(sem_t), PROT_READ | PROT_WRITE, MAP_ANONYMOUS | MAP_SHARED, 0, 0);
-  output = mmap(NULL, sizeof(sem_t), PROT_READ | PROT_WRITE, MAP_ANONYMOUS | MAP_SHARED, 0, 0);
+  turn = mmap(NULL, sizeof(sem_t), PROT_READ | PROT_WRITE, MAP_ANONYMOUS | MAP_SHARED, 0, 0);
   
   //check initilization
   if(mutex == MAP_FAILED || customer == MAP_FAILED || worker == MAP_FAILED || letters == MAP_FAILED || 
-     packages == MAP_FAILED || money == MAP_FAILED || output == MAP_FAILED){
+     packages == MAP_FAILED || money == MAP_FAILED || turn == MAP_FAILED){
     fprintf(stderr, "Initilization of semaphores failed.\n");
     exit(EXIT_FAILURE);
   }
      
   //check initilization
   if(sem_init(mutex, 1, 1) == -1 || sem_init(customer, 1, 0) == -1 || sem_init(worker, 1, 0) == -1 || 
-     sem_init(letters, 1, 0) == -1 || sem_init(packages, 1, 0) == -1 || sem_init(money, 1, 0) == -1 || sem_init(output, 1, 0) == -1) {
+     sem_init(letters, 1, 0) == -1 || sem_init(packages, 1, 0) == -1 || sem_init(money, 1, 0) == -1 || sem_init(turn, 1, 0) == -1) {
     fprintf(stderr, "Initilization of semaphores failed.\n");
     exit(EXIT_FAILURE);
   }
@@ -344,7 +346,7 @@ void clean() {
   sem_destroy(letters);
   sem_destroy(packages);
   sem_destroy(money);
-  sem_destroy(output);
+  sem_destroy(turn);
 }
 
 
