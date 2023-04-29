@@ -14,7 +14,6 @@
  * @return 
  */
 void custom_print(const char * format, ...) {
-
   (*line_number)++;
   va_list args;
   va_start (args, format);
@@ -22,7 +21,6 @@ void custom_print(const char * format, ...) {
   vfprintf(file, format, args);
   fflush(file);
   va_end(args);
-
   return;
 }
 
@@ -42,55 +40,82 @@ void worker_process(int id_w) {
   sem_post(mutex);
 
   //when office is closed, worker goes home
-  if((*post_closed) == 1) {
-    sem_wait(mutex);
-    custom_print(" U %d: going home\n", id_w);
-    sem_post(mutex);
-    exit(EXIT_SUCCESS);
-  }
+  // if((*post_closed) == 1) {
+  //   sem_wait(mutex);
+  //   custom_print(" U %d: going home\n", id_w);
+  //   sem_post(mutex);
+  //   exit(EXIT_SUCCESS);
+  // }
 
   ///choosing service to serve;
   int service = 0;
   while (1) {
     service = rand() % 3 + 1;
-    sem_wait(mutex);
+    printf("U : %d, queue %d queue %d queue %d service %d\n", id_w, *letter_queue, *packages_queue, *money_queue, service);
+
+    // if( *letter_queue <= 0 && *packages_queue <= 0 && *money_queue <= 0 ) {
+    //   custom_print(" U %d: taking break\n", id_w);
+    //   sem_wait(mutex);
+    //   usleep(rand() % (break_time + 1));
+    //   sem_post(mutex);
+    //   custom_print(" U %d: break finished\n", id_w);
+    //   break;
+    // }
+
     if (service == 1 && *letter_queue > 0) {
-      sem_post(mutex);
-      sem_post(letters);
+
       sem_wait(mutex);
       (*letter_queue)--;
+      sem_post(letters);
       sem_post(mutex);
-      custom_print(" U %d: serving a service of type %d\n", id_w, service);
-      break;
-    }
 
-    sem_wait(mutex);  
-    if (service == 2 && *packages_queue > 0) {
+      sem_wait(letter_done);
+      sem_wait(mutex);
+      custom_print(" U %d: serving a service of type %d\n", id_w, service);
+      int random_time = rand() % (10 + 1);
       sem_post(mutex);
-      sem_post(packages);
+      usleep(random_time);
+      sem_wait(mutex);
+      custom_print(" U %d: service finished\n", id_w);
+      sem_post(letters);
+      sem_post(mutex);
+    }
+    if (service == 2 && *packages_queue > 0) {
+
       sem_wait(mutex);
       (*packages_queue)--;
+      sem_post(packages);
       sem_post(mutex);
-      custom_print(" U %d: serving a service of type %d\n", id_w, service);
-      break;
-    }
 
-    sem_wait(mutex);
+      sem_wait(package_done);
+      custom_print(" U %d: serving a service of type %d\n", id_w, service);
+
+      usleep(rand() % (10 + 1));
+      custom_print(" U %d: service finished\n", id_w);
+      sem_wait(mutex);
+      sem_post(packages);
+      sem_post(mutex);
+
+    }
     if (service == 3 && *money_queue > 0) {
       sem_post(mutex);
-      sem_post(money);
+
       sem_wait(mutex);
       (*money_queue)--;
+      sem_post(money);
       sem_post(mutex);
+   
+      sem_wait(money_done);
       custom_print(" U %d: serving a service of type %d\n", id_w, service);
-      break;
+
+      int random_time = rand() % (10 + 1);
+      usleep(random_time);
+      custom_print(" U %d: service finished\n", id_w);
+
+      sem_post(money);
     }
+    
   }  
-  int random_time = rand() % (10 + 1);
-  usleep(random_time);
-  sem_wait(mutex);
-  custom_print(" U %d: service finished\n", id_w);
-  sem_post(mutex);
 
   exit(EXIT_SUCCESS);
 }
@@ -124,24 +149,33 @@ void customer_process(int id_c, int max_time) {
   int service = rand() % 3 + 1;
   switch (service) {
   case 1:
+    custom_print(" Z %d: entering office for service %d\n", id_c, service);
     sem_wait(mutex);
     (*letter_queue)++;
     sem_post(mutex);
-    custom_print(" Z %d: entering office for service %d\n", id_c, service);
 
     sem_wait(letters);
     custom_print(" Z %d: called by office worker\n", id_c);
 
-    break;  
+    sem_post(letter_done);
+    sem_wait(letters);
+    custom_print(" Z %d: going home\n", id_c);
+  break;  
 
   case 2:
     sem_wait(mutex);
     (*packages_queue)++;
-    custom_print(" Z %d: entering office for service %d\n", id_c, service);
     sem_post(mutex);
+    custom_print(" Z %d: entering office for service %d\n", id_c, service);
 
     sem_wait(packages);
+
     custom_print(" Z %d: called by office worker\n", id_c);
+
+    sem_post(package_done);
+    sem_wait(packages);
+    custom_print(" Z %d: going home\n", id_c);
+
 
     break;
 
@@ -149,14 +183,14 @@ void customer_process(int id_c, int max_time) {
     sem_wait(mutex);
     (*money_queue)++;
     custom_print(" Z %d: entering office for service %d\n", id_c, service);
-    sem_post(mutex);
 
     sem_wait(money);
     custom_print(" Z %d: called by office worker\n", id_c);
 
-    break;
+    sem_post(money_done);
+    sem_wait(money);
+    custom_print(" Z %d: going home\n", id_c);
 
-  default:
     break;
   }
   
@@ -181,7 +215,7 @@ int main(int argc, char *argv[]) {
   //maximum time in miliseconds after which customers wait
   int wait_time = atoi(argv[3]);
   //maximum length of a break
-  //int break_time = atoi(argv[4]);
+  // int break_time = atoi(argv[4]);
   //maximum time in milliseconds after which postal office is closed
   //int close_time = atoi(argv[5]);
   
@@ -300,23 +334,24 @@ void initialization() {
   
   //initialize semaphores
   mutex = mmap(NULL, sizeof(sem_t), PROT_READ | PROT_WRITE, MAP_ANONYMOUS | MAP_SHARED, 0, 0);
-  customer = mmap(NULL, sizeof(sem_t), PROT_READ | PROT_WRITE, MAP_ANONYMOUS | MAP_SHARED, 0, 0);
-  worker = mmap(NULL, sizeof(sem_t), PROT_READ | PROT_WRITE, MAP_ANONYMOUS | MAP_SHARED, 0, 0);
+  letter_done = mmap(NULL, sizeof(sem_t), PROT_READ | PROT_WRITE, MAP_ANONYMOUS | MAP_SHARED, 0, 0);
+  package_done = mmap(NULL, sizeof(sem_t), PROT_READ | PROT_WRITE, MAP_ANONYMOUS | MAP_SHARED, 0, 0);
+  money_done = mmap(NULL, sizeof(sem_t), PROT_READ | PROT_WRITE, MAP_ANONYMOUS | MAP_SHARED, 0, 0);
   letters = mmap(NULL, sizeof(sem_t), PROT_READ | PROT_WRITE, MAP_ANONYMOUS | MAP_SHARED, 0, 0);
   packages = mmap(NULL, sizeof(sem_t), PROT_READ | PROT_WRITE, MAP_ANONYMOUS | MAP_SHARED, 0, 0);
   money = mmap(NULL, sizeof(sem_t), PROT_READ | PROT_WRITE, MAP_ANONYMOUS | MAP_SHARED, 0, 0);
-  turn = mmap(NULL, sizeof(sem_t), PROT_READ | PROT_WRITE, MAP_ANONYMOUS | MAP_SHARED, 0, 0);
+  output = mmap(NULL, sizeof(sem_t), PROT_READ | PROT_WRITE, MAP_ANONYMOUS | MAP_SHARED, 0, 0);
   
   //check initilization
-  if(mutex == MAP_FAILED || customer == MAP_FAILED || worker == MAP_FAILED || letters == MAP_FAILED || 
-     packages == MAP_FAILED || money == MAP_FAILED || turn == MAP_FAILED){
+  if(mutex == MAP_FAILED || letter_done == MAP_FAILED || package_done == MAP_FAILED || money_done == MAP_FAILED || letters == MAP_FAILED || 
+     packages == MAP_FAILED || money == MAP_FAILED || output == MAP_FAILED){
     fprintf(stderr, "Initilization of semaphores failed.\n");
     exit(EXIT_FAILURE);
   }
      
   //check initilization
-  if(sem_init(mutex, 1, 1) == -1 || sem_init(customer, 1, 0) == -1 || sem_init(worker, 1, 0) == -1 || 
-     sem_init(letters, 1, 0) == -1 || sem_init(packages, 1, 0) == -1 || sem_init(money, 1, 0) == -1 || sem_init(turn, 1, 0) == -1) {
+  if(sem_init(mutex, 1, 1) == -1 || sem_init(letter_done, 1, 0) == -1 || sem_init(package_done, 1, 0) == -1 || sem_init(money_done, 1, 0) == -1 || 
+     sem_init(letters, 1, 0) == -1 || sem_init(packages, 1, 0) == -1 || sem_init(money, 1, 0) == -1 || sem_init(output, 1, 1) == -1) {
     fprintf(stderr, "Initilization of semaphores failed.\n");
     exit(EXIT_FAILURE);
   }
@@ -341,12 +376,13 @@ void clean() {
   
   //destroy semaphores
   sem_destroy(mutex);
-  sem_destroy(customer);
-  sem_destroy(worker);
+  sem_destroy(letter_done);
+  sem_destroy(package_done);
+  sem_destroy(money_done);
   sem_destroy(letters);
   sem_destroy(packages);
   sem_destroy(money);
-  sem_destroy(turn);
+  sem_destroy(output);
 }
 
 

@@ -24,8 +24,9 @@
 
 //shared variables
 sem_t *mutex = NULL;
-sem_t *customer = NULL;
-sem_t *worker = NULL;
+sem_t *letter_done = NULL;
+sem_t *package_done = NULL;
+sem_t *money_done = NULL;
 sem_t *letters = NULL;
 sem_t *packages = NULL;
 sem_t *money = NULL;
