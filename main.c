@@ -48,40 +48,37 @@ void worker_process(int id_w) {
     sem_post(mutex);
   }
 
-  //choose service to serve
+  //choosing service to serve
   int service = 0;
   while (1) {
     service = rand() % 3 + 1;
     if (service == 1 && *letter_queue > 0) {
-      custom_print(" U %d: serving a service of type %d\n", id_w, service);
+
       sem_post(letters);
-      int random_time = rand() % (10 + 1);
-      usleep(random_time);
-      custom_print(" service finished\n");
-      (*letter_queue)--;
+
+      custom_print(" U %d: serving a service of type %d\n", id_w, service);
+      sem_wait(mutex);
       break;
     }
     if (service == 2 && *packages_queue > 0) {
-      custom_print(" U %d: serving a service of type %d\n", id_w, service);
       sem_post(packages);
-      int random_time = rand() % (10 + 1);
-      usleep(random_time);
-      custom_print(" service finished\n");
-      (*packages_queue)--;
+
+      custom_print(" U %d: serving a service of type %d\n", id_w, service);
+      sem_wait(mutex);
       break;
     }
     if (service == 3 && *money_queue > 0) {
-      custom_print(" U %d: serving a service of type %d\n", id_w, service);
       sem_post(money);
-      int random_time = rand() % (10 + 1);
-      usleep(random_time);
-      custom_print(" service finished\n");
-      (*money_queue)--;
+
+      custom_print(" U %d: serving a service of type %d\n", id_w, service);
+      sem_wait(mutex);
       break;
     }
-  } 
-
-  
+  }  
+  int random_time = rand() % (10 + 1);
+  usleep(random_time);
+  custom_print(" service finished\n");
+  sem_post(mutex);
 
   if(file) {
     fclose(file);
@@ -118,32 +115,46 @@ void customer_process(int id_c, int max_time) {
   //chose a service when entering the office
   int service = rand() % 3 + 1;
   sem_wait(mutex);
-  switch (service)
-  {
+  switch (service) {
   case 1:
     (*letter_queue)++;
     custom_print(" Z %d: entering office for service %d\n", id_c, service);
-    sem_wait(letters);
-    custom_print(" Z %d: called by office worker\n", id_c);
     sem_post(mutex);
+
+    sem_wait(letters);
+    sem_wait(mutex);
+    custom_print(" Z %d: called by office worker\n", id_c);
+    (*letter_queue)--;
+    sem_post(mutex);
+
     break;
   case 2:
     (*packages_queue)++;
     custom_print(" Z %d: entering office for service %d\n", id_c, service);
-    sem_wait(packages);
-    custom_print(" Z %d: called by office worker\n", id_c);
+    sem_post(mutex);
+
+    sem_wait(letters);
+    sem_wait(mutex);
+    custom_print(" Z %d: called by office worker\n", id_c);    custom_print(" Z %d: called by office worker\n", id_c);
+
+    (*packages_queue)--;
+    sem_post(mutex);
     break;
   case 3:
     (*money_queue)++;
     custom_print(" Z %d: entering office for service %d\n", id_c, service);
-    sem_wait(money);
+    sem_post(mutex);
+
+    sem_wait(letters);
+    sem_wait(mutex);
     custom_print(" Z %d: called by office worker\n", id_c);
+    (*money_queue)--;
+    sem_post(mutex);
     break;
   default:
     break;
   }
   
-
   if(file) {
     fclose(file);
   }
