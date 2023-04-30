@@ -1,4 +1,4 @@
-EXEC = main
+EXEC = proj2
 CC = gcc
 CFLAGS = -std=gnu99 -Wall -Wextra -Werror -pedantic -lpthread -g3
 
