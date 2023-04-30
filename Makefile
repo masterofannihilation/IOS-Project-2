@@ -1,6 +1,6 @@
 EXEC = proj2
 CC = gcc
-CFLAGS = -std=gnu99 -Wall -Wextra -Werror -pedantic -lpthread -g3
+CFLAGS =  -std=gnu99 -Wall -Wextra -Werror -pedantic
 
 SRCS = $(wildcard *.c)
 OBJS = $(patsubst %.c,%.o,$(SRCS))
@@ -16,3 +16,4 @@ $(EXEC): $(OBJS)
 
 clean:
 	rm -f $(EXEC) $(OBJS) $(DEPS)
+
