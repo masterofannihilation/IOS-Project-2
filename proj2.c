@@ -9,8 +9,8 @@
 
 /**
  * @brief function for custom print to output file
- * @param format 
- * @param ...
+ * @param format string 
+ * @param ... parameters for the string
  * @return 
  */
 void custom_print(const char * format, ...) {
@@ -41,11 +41,29 @@ void worker_process(int id_w, int break_time) {
   sem_post(mutex);
 
   //choosing service to serve;
-  int service = 0;
   while (1) {
-    service = rand() % 3 + 1;
-    printf("U : %d, q?ueue %d queue %d queue %d service %d\n", id_w, *letter_queue, *packages_queue, *money_queue, service);
+    int service = 0;
+    sem_wait(mutex);
+    //check if queues are not empty and then choose one that is not empty
+    if( *letter_queue > 0 || *packages_queue > 0 || *money_queue > 0) {
+      while(1) {
+        service = rand() % 3 + 1;
+        if(service == 1 && *letter_queue > 0) {
+          service =  1;
+          break;
+        }
+        else if(service == 2 && *packages_queue > 0) {
+          service =  2;
+          break;
+        }
+        else if(service == 3 && *money_queue > 0) {
+          service =  3;
+          break;
+        }
+      }
+    }
     if (service == 1 && *letter_queue > 0) {
+      sem_post(mutex);
       //choosing queue, decrementing queue variable and posting semaphore so customer knows he is called
       sem_wait(mutex);
       (*letter_queue)--;
@@ -58,12 +76,13 @@ void worker_process(int id_w, int break_time) {
       sem_post(mutex);
 
       //wait random time to finish service
-      usleep(rand() % (11 * 1000));
+      usleep((rand() % 11 ) * 1000);
       sem_wait(mutex);
       custom_print(" U %d: service finished\n", id_w);
       sem_post(mutex);
     }
     else if (service == 2 && *packages_queue > 0) {
+      sem_post(mutex);
       //choosing queue, decrementing queue variable and posting semaphore so customer knows he is called
        sem_wait(mutex);
       (*packages_queue)--;
@@ -76,12 +95,13 @@ void worker_process(int id_w, int break_time) {
       sem_post(mutex);
 
       //wait random time to finish service
-      usleep(rand() % (11 * 1000));
+      usleep((rand() % 11 ) * 1000);
       sem_wait(mutex);
       custom_print(" U %d: service finished\n", id_w);
       sem_post(mutex);
     }
     else if (service == 3 && *money_queue > 0) {
+      sem_post(mutex);
       //choosing queue, decrementing queue variable and posting semaphore so customer knows he is called
        sem_wait(mutex);
       (*money_queue)--;
@@ -94,13 +114,13 @@ void worker_process(int id_w, int break_time) {
       sem_post(mutex);
 
       //wait random time to finish service
-      usleep(rand() % (11 * 1000));
+      usleep((rand() % 11 ) * 1000);
       sem_wait(mutex);
       custom_print(" U %d: service finished\n", id_w);
       sem_post(mutex);
     }
     else {
-      sem_wait(mutex);
+      //if post flag is on postal office will be closed and office workers are going home
       if (*post_closed == 1) {
         sem_post(mutex);
         sem_wait(mutex);
@@ -109,10 +129,11 @@ void worker_process(int id_w, int break_time) {
         break;
       }
       else{
+      //else they are taking break
         sem_post(mutex);
         sem_wait(mutex);
         custom_print(" U %d: taking break\n", id_w);
-        usleep(rand() % ((break_time + 1) * 1000));
+        usleep((rand() % (break_time + 1)) * 1000);
         custom_print(" U %d: break finished\n", id_w);
         sem_post(mutex);
       }
@@ -140,7 +161,7 @@ void customer_process(int id_c, int max_time) {
   sem_post(mutex);
 
   // wait random time in <0,max_time> interval before entering the office
-  usleep(rand() % ((max_time + 1) * 1000));
+  usleep((rand() % (max_time + 1)) * 1000);
 
   //if office is closed, go home
   sem_wait(mutex);
@@ -169,7 +190,7 @@ void customer_process(int id_c, int max_time) {
     sem_wait(mutex);
     custom_print(" Z %d: called by office worker\n", id_c);
     sem_post(mutex);
-    usleep(rand() % (11 * 1000));
+    usleep((rand() % 11 ) * 1000);
 
     //copying signal he can go home
     sem_wait(mutex);
@@ -191,7 +212,7 @@ void customer_process(int id_c, int max_time) {
     sem_wait(mutex);
     custom_print(" Z %d: called by office worker\n", id_c);
     sem_post(mutex);
-    usleep(rand() % (11 * 1000));
+    usleep((rand() % 11 ) * 1000);
 
     //copying signal he can go home
     sem_wait(mutex);
@@ -213,7 +234,7 @@ void customer_process(int id_c, int max_time) {
     sem_wait(mutex);
     custom_print(" Z %d: called by office worker\n", id_c);
     sem_post(mutex);
-    usleep(rand() % (11 * 1000));
+    usleep((rand() % 11 ) * 1000);
 
     //copying signal he can go home
     sem_wait(mutex);
@@ -232,6 +253,8 @@ void customer_process(int id_c, int max_time) {
  * @return 
  */
 int main(int argc, char *argv[]) {
+
+  srand(time(NULL) * getpid());
  
   arg_check (argc, argv);
   
@@ -275,7 +298,8 @@ int main(int argc, char *argv[]) {
   }
 
   //opening postal office for random time
-  int close = rand() % (((close_time - (close_time / 2) + 1) + (close_time / 2)) * 1000);
+  int close = (rand() % (close_time / 2 + 1) + (close_time / 2)) * 1000;
+  printf("%d\n", close);
   usleep(close);
   sem_wait(mutex);
   *post_closed = 1;
