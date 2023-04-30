@@ -1,19 +1,18 @@
 EXEC = proj2
 CC = gcc
-CFLAGS =  -std=gnu99 -Wall -Wextra -Werror -pedantic
-
-SRCS = $(wildcard *.c)
-OBJS = $(patsubst %.c,%.o,$(SRCS))
-DEPS = $(SRCS:.c=.d)
+CFLAGS = -std=gnu99 -Wall -Wextra -Werror -pedantic
+OUT = proj2
+SEMFLAGS = -pthread -lrt
 
 .PHONY: clean all
 
 all: $(EXEC)
 
-$(EXEC): $(OBJS)
+$(EXEC): *.o
+	$(CC) $(CFLAGS) -o $(EXEC) *.o $(SEMFLAGS)
 
--include $(DEPS)
+*.o: *.c
+	$(CC) $(CFLAGS) -c *.c $(SEMFLAGS)
 
 clean:
-	rm -f $(EXEC) $(OBJS) $(DEPS) proj2.out
-
+	rm -f $(EXEC) proj2.o proj2.out
