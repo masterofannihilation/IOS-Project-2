@@ -10,7 +10,7 @@
 /**
  * @brief function for custom print to output file
  * @param format string 
- * @param ... parameters for the string
+ * @param ... parameters for string
  * @return 
  */
 void custom_print(const char * format, ...) {
@@ -37,7 +37,7 @@ void worker_process(int id_w, int break_time) {
 
   //initial print, worker is starting
   sem_wait(mutex);
-  custom_print(" U %d: started\n",id_w);
+  custom_print(" U %d: started\n",id_w);  
   sem_post(mutex);
 
   //choosing service to serve;

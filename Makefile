@@ -8,11 +8,11 @@ SEMFLAGS = -pthread -lrt
 
 all: $(EXEC)
 
-$(EXEC): *.o
-	$(CC) $(CFLAGS) -o $(EXEC) *.o $(SEMFLAGS)
+$(EXEC): proj2.o
+	$(CC) $(CFLAGS) -o $(EXEC) proj2.o $(SEMFLAGS)
 
-*.o: *.c
-	$(CC) $(CFLAGS) -c *.c $(SEMFLAGS)
+proj2.o: proj2.c
+	$(CC) $(CFLAGS) -c proj2.c $(SEMFLAGS)
 
 clean:
 	rm -f $(EXEC) proj2.o proj2.out
