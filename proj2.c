@@ -26,7 +26,8 @@ void custom_print(const char * format, ...) {
 
 /**
  * @brief process for worker
- * @param
+ * @param id_w id of every office worker
+ * @param break_time maximum time a worker can take a break
  * @return 
  */
 void worker_process(int id_w, int break_time) {
@@ -59,7 +60,6 @@ void worker_process(int id_w, int break_time) {
 
       //wait random time to finish service
       usleep(rand() % (11 * 1000));
-
       sem_wait(mutex);
       custom_print(" U %d: service finished\n", id_w);
       sem_post(mutex);
@@ -78,7 +78,6 @@ void worker_process(int id_w, int break_time) {
 
       //wait random time to finish service
       usleep(rand() % (11 * 1000));
-
       sem_wait(mutex);
       custom_print(" U %d: service finished\n", id_w);
       sem_post(mutex);
@@ -97,27 +96,26 @@ void worker_process(int id_w, int break_time) {
 
       //wait random time to finish service
       usleep(rand() % (11 * 1000));
-
       sem_wait(mutex);
       custom_print(" U %d: service finished\n", id_w);
       sem_post(mutex);
     }
     else {
       sem_wait(mutex);
-      if (*post_closed == 1) {
-        sem_post(mutex);
-        sem_wait(mutex);
-        custom_print(" U %d: going home\n", id_w);
-        sem_post(mutex);
-        break;
-      }
-      else {
+      if (*post_closed == 0) {
         sem_post(mutex);
         sem_wait(mutex);
         custom_print(" U %d: taking break\n", id_w);
         usleep(rand() % ((break_time + 1) * 1000));
         custom_print(" U %d: break finished\n", id_w);
+        sem_post(mutex);        
+      }
+      else{        
         sem_post(mutex);
+        sem_wait(mutex);
+        custom_print(" U %d: going home\n", id_w);
+        sem_post(mutex);
+        break;
       }
       sem_post(mutex);
     }
@@ -129,7 +127,7 @@ void worker_process(int id_w, int break_time) {
 /**
  * @brief process for customer
  * @param id_c id of customer
- * @param max_time maximum time customer will wait before entering postal office afther he "started"
+ * @param max_time maximum time customer will wait before entering postal office
  * @return
  */
 void customer_process(int id_c, int max_time) {
@@ -162,13 +160,14 @@ void customer_process(int id_c, int max_time) {
   case 1:
     //entering office and incrementing queue variable, so that officer knows queue is not empty
     sem_wait(mutex);
-    custom_print(" Z %d: entering office for service %d\n", id_c, service);
+    custom_print(" Z %d: entering office for a service %d\n", id_c, service);
     (*letter_queue)++;
     sem_post(mutex);
 
     //waiting for officer to post letters semaphore
     sem_wait(letters);
 
+    //then he is called by him
     sem_wait(mutex);
     custom_print(" Z %d: called by office worker\n", id_c);
     sem_post(mutex);
@@ -183,13 +182,14 @@ void customer_process(int id_c, int max_time) {
   case 2:
     //entering office and incrementing queue variable, so that officer knows queue is not empty
     sem_wait(mutex);
-    custom_print(" Z %d: entering office for service %d\n", id_c, service);
+    custom_print(" Z %d: entering office for a service %d\n", id_c, service);
     (*packages_queue)++;
     sem_post(mutex);
 
     //waiting for officer to post letters semaphore
     sem_wait(packages);
 
+    //then he is called by him
     sem_wait(mutex);
     custom_print(" Z %d: called by office worker\n", id_c);
     sem_post(mutex);
@@ -204,13 +204,14 @@ void customer_process(int id_c, int max_time) {
   case 3:
     //entering office and incrementing queue variable, so that officer knows queue is not empty
     sem_wait(mutex);
-    custom_print(" Z %d: entering office for service %d\n", id_c, service);
+    custom_print(" Z %d: entering office for a service %d\n", id_c, service);
     (*money_queue)++;
     sem_post(mutex);
 
     //waiting for officer to post letters semaphore
     sem_wait(money);
 
+    //then he is called by him
     sem_wait(mutex);
     custom_print(" Z %d: called by office worker\n", id_c);
     sem_post(mutex);
@@ -228,7 +229,7 @@ void customer_process(int id_c, int max_time) {
 
 /**
  * @brief Main function of the program
- * @param argc
+ * @param argc 
  * @param argv
  * @return 
  */
@@ -313,7 +314,7 @@ void arg_check(int argc,char *argv[]) {
   }
   
   //check if arguments have correct values
-  if (atoi(argv[1]) < 0 || atoi(argv[2]) < 0) {
+  if (atoi(argv[1]) <= 0 || atoi(argv[2]) <= 0) {
     fprintf(stderr, "Invalid amount of customers or workers.\n");
     exit(EXIT_FAILURE);
   }
