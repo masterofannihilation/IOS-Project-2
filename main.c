@@ -29,7 +29,7 @@ void custom_print(const char * format, ...) {
  * @param
  * @return 
  */
-void worker_process(int id_w) {
+void worker_process(int id_w, int number_of_customers) {
 
   //initialize random seed
   srand(time(NULL) * getpid());
@@ -52,69 +52,68 @@ void worker_process(int id_w) {
   while (1) {
     service = rand() % 3 + 1;
     printf("U : %d, queue %d queue %d queue %d service %d\n", id_w, *letter_queue, *packages_queue, *money_queue, service);
-
-    // if( *letter_queue <= 0 && *packages_queue <= 0 && *money_queue <= 0 ) {
-    //   custom_print(" U %d: taking break\n", id_w);
-    //   sem_wait(mutex);
-    //   usleep(rand() % (break_time + 1));
-    //   sem_post(mutex);
-    //   custom_print(" U %d: break finished\n", id_w);
-    //   break;
-    // }
-
     if (service == 1 && *letter_queue > 0) {
-
+      //choosing queue, decrementing queue variable and posting semaphore so customer knows he is called
       sem_wait(mutex);
       (*letter_queue)--;
       sem_post(letters);
       sem_post(mutex);
-
+      //giving customer notice he is working on it and is done
       sem_wait(letter_done);
       sem_wait(mutex);
       custom_print(" U %d: serving a service of type %d\n", id_w, service);
-      int random_time = rand() % (10 + 1);
       sem_post(mutex);
-      usleep(random_time);
+      //sleep random time to finish service
+      usleep(rand() % (10 + 1));
       sem_wait(mutex);
       custom_print(" U %d: service finished\n", id_w);
+      //notice he can go home
       sem_post(letters);
       sem_post(mutex);
     }
     if (service == 2 && *packages_queue > 0) {
-
+      //choosing queue, decrementing queue variable and posting semaphore so customer knows he is called
       sem_wait(mutex);
       (*packages_queue)--;
       sem_post(packages);
       sem_post(mutex);
-
+      //giving customer notice he is working on it and is done
       sem_wait(package_done);
-      custom_print(" U %d: serving a service of type %d\n", id_w, service);
-
-      usleep(rand() % (10 + 1));
-      custom_print(" U %d: service finished\n", id_w);
       sem_wait(mutex);
+      custom_print(" U %d: serving a service of type %d\n", id_w, service);
+      sem_post(mutex);
+      //sleep random time to finish service
+      usleep(rand() % (10 + 1));
+      sem_wait(mutex);
+      custom_print(" U %d: service finished\n", id_w);
       sem_post(packages);
       sem_post(mutex);
-
     }
     if (service == 3 && *money_queue > 0) {
-      sem_post(mutex);
-
+      //choosing queue, decrementing queue variable and posting semaphore so customer knows he is called
       sem_wait(mutex);
       (*money_queue)--;
       sem_post(money);
       sem_post(mutex);
-   
+      //giving customer notice he is working on it and is done
       sem_wait(money_done);
+      sem_wait(mutex);
       custom_print(" U %d: serving a service of type %d\n", id_w, service);
-
-      int random_time = rand() % (10 + 1);
-      usleep(random_time);
+      sem_post(mutex);
+      //sleep random time to finish service
+      usleep(rand() % (10 + 1));
+      sem_wait(mutex);
       custom_print(" U %d: service finished\n", id_w);
-
       sem_post(money);
+      sem_post(mutex);
     }
-    
+    if (*went_home == number_of_customers ){
+      sem_wait(mutex);
+      custom_print(" U %d: going home\n", id_w);
+      sem_post(mutex);
+      exit(EXIT_SUCCESS);
+      break;
+    }
   }  
 
   exit(EXIT_SUCCESS);
@@ -149,49 +148,65 @@ void customer_process(int id_c, int max_time) {
   int service = rand() % 3 + 1;
   switch (service) {
   case 1:
-    custom_print(" Z %d: entering office for service %d\n", id_c, service);
+    //entering office and incrementing queue variable, so that officer knows queue is not empty
     sem_wait(mutex);
+    custom_print(" Z %d: entering office for service %d\n", id_c, service);
     (*letter_queue)++;
     sem_post(mutex);
-
+    //waiting for officer to post letters semaphore
     sem_wait(letters);
+    sem_wait(mutex);
     custom_print(" Z %d: called by office worker\n", id_c);
-
+    sem_post(mutex);
+    //notice when it's done
     sem_post(letter_done);
+    //copying signal he can go home
     sem_wait(letters);
+    sem_wait(mutex);
     custom_print(" Z %d: going home\n", id_c);
+    (*went_home)++;
+    sem_post(mutex);
   break;  
 
   case 2:
     sem_wait(mutex);
+    custom_print(" Z %d: entering office for service %d\n", id_c, service);
     (*packages_queue)++;
     sem_post(mutex);
-    custom_print(" Z %d: entering office for service %d\n", id_c, service);
 
     sem_wait(packages);
-
+    sem_wait(mutex);
     custom_print(" Z %d: called by office worker\n", id_c);
+    sem_post(mutex);
 
     sem_post(package_done);
     sem_wait(packages);
+
+    sem_wait(mutex);
     custom_print(" Z %d: going home\n", id_c);
-
-
-    break;
+    (*went_home)++;
+    sem_post(mutex);
+  break;
 
   case 3:
     sem_wait(mutex);
-    (*money_queue)++;
     custom_print(" Z %d: entering office for service %d\n", id_c, service);
+    (*money_queue)++;
+    sem_post(mutex);
 
     sem_wait(money);
+    sem_wait(mutex);
     custom_print(" Z %d: called by office worker\n", id_c);
+    sem_post(mutex);
 
     sem_post(money_done);
     sem_wait(money);
-    custom_print(" Z %d: going home\n", id_c);
 
-    break;
+    sem_wait(mutex);
+    custom_print(" Z %d: going home\n", id_c);
+    (*went_home)++;
+    sem_post(mutex);
+  break;
   }
   
   exit(EXIT_SUCCESS);
@@ -225,7 +240,7 @@ int main(int argc, char *argv[]) {
   for(int i = 1; i <= workers; i++) {
     pid_t pid = fork();
     if (pid == 0) {
-      worker_process(i);
+      worker_process(i, customers);
     }
     else if(pid < 0 ) {
       fprintf(stderr, "Fork failed.\n");
@@ -330,6 +345,7 @@ void initialization() {
   letter_queue = mmap(NULL, sizeof(int), PROT_READ | PROT_WRITE, MAP_SHARED | MAP_ANONYMOUS, 0, 0);
   packages_queue = mmap(NULL, sizeof(int), PROT_READ | PROT_WRITE, MAP_SHARED | MAP_ANONYMOUS, 0, 0);
   money_queue = mmap(NULL, sizeof(int), PROT_READ | PROT_WRITE, MAP_SHARED | MAP_ANONYMOUS, 0, 0);
+  went_home = mmap(NULL, sizeof(int), PROT_READ | PROT_WRITE, MAP_SHARED | MAP_ANONYMOUS, 0, 0);
 
   
   //initialize semaphores
@@ -344,7 +360,7 @@ void initialization() {
   
   //check initilization
   if(mutex == MAP_FAILED || letter_done == MAP_FAILED || package_done == MAP_FAILED || money_done == MAP_FAILED || letters == MAP_FAILED || 
-     packages == MAP_FAILED || money == MAP_FAILED || output == MAP_FAILED){
+     packages == MAP_FAILED || money == MAP_FAILED || output == MAP_FAILED || went_home == MAP_FAILED){
     fprintf(stderr, "Initilization of semaphores failed.\n");
     exit(EXIT_FAILURE);
   }
@@ -373,6 +389,7 @@ void clean() {
   munmap((letter_queue), sizeof(letter_queue));
   munmap((packages_queue), sizeof(packages_queue));
   munmap((money_queue), sizeof(money_queue));
+  munmap((went_home), sizeof(went_home));
   
   //destroy semaphores
   sem_destroy(mutex);

@@ -38,12 +38,13 @@ int *post_closed = NULL;
 int *letter_queue = NULL;
 int *packages_queue = NULL;
 int *money_queue = NULL;
+int *went_home = NULL;
 
 
 //function declaration
 void arg_check(int argc, char *argv[]);
 void initialization();
 void clean();
-void worker_process(int id_w);
+void worker_process(int id_w, int number_of_customers);
 void customer_process(int id_c, int max_time);
 void custom_print(const char * format, ...);
