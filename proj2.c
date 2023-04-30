@@ -1,5 +1,5 @@
 /**
- * @file main.c
+ * @file proj2.c
  * @author Boris Hatala (xhatal02)
  * @date 30.04.2023
  * @brief IOS project 2 - synchronization
@@ -44,8 +44,7 @@ void worker_process(int id_w, int break_time) {
   int service = 0;
   while (1) {
     service = rand() % 3 + 1;
-    // service = 1;
-    printf("U : %d, queue %d queue %d queue %d service %d\n", id_w, *letter_queue, *packages_queue, *money_queue, service);
+    printf("U : %d, q?ueue %d queue %d queue %d service %d\n", id_w, *letter_queue, *packages_queue, *money_queue, service);
     if (service == 1 && *letter_queue > 0) {
       //choosing queue, decrementing queue variable and posting semaphore so customer knows he is called
       sem_wait(mutex);
@@ -102,20 +101,20 @@ void worker_process(int id_w, int break_time) {
     }
     else {
       sem_wait(mutex);
-      if (*post_closed == 0) {
-        sem_post(mutex);
-        sem_wait(mutex);
-        custom_print(" U %d: taking break\n", id_w);
-        usleep(rand() % ((break_time + 1) * 1000));
-        custom_print(" U %d: break finished\n", id_w);
-        sem_post(mutex);        
-      }
-      else{        
+      if (*post_closed == 1) {
         sem_post(mutex);
         sem_wait(mutex);
         custom_print(" U %d: going home\n", id_w);
         sem_post(mutex);
         break;
+      }
+      else{
+        sem_post(mutex);
+        sem_wait(mutex);
+        custom_print(" U %d: taking break\n", id_w);
+        usleep(rand() % ((break_time + 1) * 1000));
+        custom_print(" U %d: break finished\n", id_w);
+        sem_post(mutex);
       }
       sem_post(mutex);
     }
@@ -151,7 +150,6 @@ void customer_process(int id_c, int max_time) {
     exit(EXIT_SUCCESS);
   }
   sem_post(mutex);
-
 
   //chose a service when entering the office
   int service = rand() % 3 + 1;

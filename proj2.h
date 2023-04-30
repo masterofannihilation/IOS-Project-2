@@ -1,5 +1,5 @@
 /**
- * @file main.h
+ * @file proj2.h
  * @author Boris Hatala (xhatal02)
  * @date 30.04.2023
  * @brief Header file for main.c

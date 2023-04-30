@@ -15,5 +15,5 @@ $(EXEC): $(OBJS)
 -include $(DEPS)
 
 clean:
-	rm -f $(EXEC) $(OBJS) $(DEPS)
+	rm -f $(EXEC) $(OBJS) $(DEPS) proj2.out
 
